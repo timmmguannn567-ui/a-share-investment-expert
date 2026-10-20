@@ -1,0 +1,16 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+*.db
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+.next/
+.pnpm-store/
+out/
+coverage/
+*.tsbuildinfo
+frontend/.env.local
+

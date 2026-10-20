@@ -1,0 +1,14 @@
+[project]
+name = "a-share-expert-api"
+version = "0.1.0"
+description = "Personal A-share ETF and stock decision-support API"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["app"]
+
