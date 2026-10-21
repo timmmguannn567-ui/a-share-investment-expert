@@ -3,7 +3,7 @@ import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 
 export const metadata: Metadata = {
-  title: "见微 · A股辅助决策",
+  title: "见微 · 股市专家",
   description: "个人使用的A股ETF与个股盘后辅助决策系统",
 };
 

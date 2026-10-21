@@ -85,6 +85,11 @@ def health() -> dict[str, object]:
         "data_provider": settings.data_provider,
         "is_demo": settings.data_provider == "mock",
         "timestamp": datetime.now(timezone.utc),
+        "update_schedule": {
+            "time": "18:30",
+            "timezone": "Asia/Shanghai",
+            "trading_days_only": True,
+        },
     }
 
 
@@ -107,20 +112,22 @@ def dashboard(db: Session = Depends(get_db)) -> dict[str, object]:
         .order_by(Recommendation.score.desc())
     ).all()
     source = db.scalar(select(DataSourceStatus).order_by(DataSourceStatus.last_updated.desc()))
+    report = db.scalar(select(DailyReport).where(DailyReport.report_date == latest_date))
+    report_market = dict(report.content.get("market", {})) if report else {}
+    market_payload = {
+        "regime": regime.regime,
+        "risk_score": regime.risk_score,
+        "equity_min": regime.equity_min,
+        "equity_max": regime.equity_max,
+        "reasons": regime.reasons,
+        "source_timestamp": regime.source_timestamp,
+        **report_market,
+    } if regime else None
     return {
         "analysis_date": latest_date,
         "is_demo": bool(source.is_demo) if source else True,
         "portfolio": portfolio_payload(portfolio),
-        "market": {
-            "regime": regime.regime,
-            "risk_score": regime.risk_score,
-            "equity_min": regime.equity_min,
-            "equity_max": regime.equity_max,
-            "reasons": regime.reasons,
-            "source_timestamp": regime.source_timestamp,
-        }
-        if regime
-        else None,
+        "market": market_payload,
         "industries": [_industry_payload(row) for row in industries],
         "recommendations": [_recommendation_payload(row) for row in recommendations],
         "data_status": {
@@ -130,6 +137,11 @@ def dashboard(db: Session = Depends(get_db)) -> dict[str, object]:
             "completeness": source.completeness,
             "message": source.message,
             "last_updated": source.last_updated,
+            "update_schedule": report.content.get("update_schedule") if report else {
+                "time": "18:30",
+                "timezone": "Asia/Shanghai",
+                "trading_days_only": True,
+            },
         }
         if source
         else None,
@@ -141,6 +153,8 @@ def get_market_regime(db: Session = Depends(get_db)) -> dict[str, object]:
     row = db.scalar(select(MarketRegime).order_by(MarketRegime.trade_date.desc()))
     if row is None:
         raise HTTPException(status_code=404, detail="尚未生成市场状态")
+    report = db.scalar(select(DailyReport).where(DailyReport.report_date == row.trade_date))
+    report_market = dict(report.content.get("market", {})) if report else {}
     return {
         "trade_date": row.trade_date,
         "regime": row.regime,
@@ -150,6 +164,7 @@ def get_market_regime(db: Session = Depends(get_db)) -> dict[str, object]:
         "reasons": row.reasons,
         "source_timestamp": row.source_timestamp,
         "is_demo": row.is_demo,
+        **report_market,
     }
 
 

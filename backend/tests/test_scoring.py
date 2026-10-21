@@ -29,4 +29,7 @@ def test_market_regime_returns_valid_equity_range() -> None:
     result = market_regime(snapshot.market)
     assert 0 <= result["risk_score"] <= 100
     assert 0 <= result["equity_min"] <= result["equity_max"] <= 1
+    assert result["regime"] in {"强攻", "趋势", "回踩", "反弹", "磨底", "冰封"}
+    assert result["proxy_notice"]
+    assert 0 <= result["proxy_percentile"] <= 100
 

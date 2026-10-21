@@ -12,12 +12,12 @@ PROJECT_ROOT = BACKEND_ROOT.parent
 
 
 class Settings(BaseSettings):
-    app_name: str = "A股ETF与个股辅助决策系统"
+    app_name: str = "股市专家 · A股辅助决策系统"
     app_env: str = "development"
     database_url: str = f"sqlite:///{(PROJECT_ROOT / 'data' / 'stock_expert.db').as_posix()}"
     data_provider: str = "mock"
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
-    strategy_version: str = "mvp-0.1.0"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,https://timmmguannn567-ui.github.io"
+    strategy_version: str = "prd-2.0.0"
 
     model_config = SettingsConfigDict(
         env_file=(PROJECT_ROOT / ".env", BACKEND_ROOT / ".env"),

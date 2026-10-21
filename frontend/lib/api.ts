@@ -5,6 +5,7 @@ const staticCache = new Map<string, unknown>();
 
 function staticFileFor(path: string): string | null {
   const files: Record<string, string> = {
+    "/api/health": "health.json",
     "/api/dashboard": "dashboard.json",
     "/api/industries/rankings": "industries.json",
     "/api/recommendations": "recommendations.json",
@@ -22,7 +23,7 @@ async function staticGet<T>(path: string): Promise<T> {
   if (staticCache.has(path)) return staticCache.get(path) as T;
   const file = staticFileFor(path);
   if (!file) throw new Error(`静态演示模式不支持：${path}`);
-  const response = await fetch(`${BASE_PATH}/data/${file}`, { cache: "no-store" });
+  const response = await fetch(`${BASE_PATH}/api/${file}`, { cache: "no-store" });
   if (!response.ok) throw new Error(`演示数据加载失败：${response.status}`);
   const data = await response.json() as T;
   staticCache.set(path, data);
@@ -167,6 +168,18 @@ export type Dashboard = {
     equity_max: number;
     reasons: string[];
     source_timestamp: string;
+    proxy_ratio: number;
+    proxy_rate: number;
+    proxy_slope_3d: number;
+    proxy_percentile: number;
+    broad_selloff_pressure: number;
+    deep_bear_count: number;
+    trend_bull_count: number;
+    wave_continuity: number;
+    divergence: boolean;
+    research_signals: string[];
+    model_status: string;
+    proxy_notice: string;
   };
   industries: Industry[];
   recommendations: Recommendation[];
@@ -177,6 +190,20 @@ export type Dashboard = {
     completeness: number;
     message: string;
     last_updated: string;
+    update_schedule?: {
+      time: string;
+      timezone: string;
+      trading_days_only: boolean;
+    };
+  };
+  online_api?: {
+    status: string;
+    mode: string;
+    base_url: string;
+    health_url: string;
+    generated_at: string;
+    next_update_at: string;
+    schedule_label: string;
   };
 };
 

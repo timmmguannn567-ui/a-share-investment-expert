@@ -86,6 +86,7 @@ def _build_recommendation(
     available_cash: float,
     industry_capacity: float,
     config: dict[str, object],
+    allow_buy: bool,
 ) -> Recommendation:
     max_amount = calculate_max_amount(
         instrument_type=instrument.instrument_type,
@@ -100,7 +101,9 @@ def _build_recommendation(
     )
     raw_suggested = suggested_amount(max_amount, score)
     amount = cap_recommendation(raw_suggested, max_amount, available_cash, industry_capacity)
-    action = "BUY" if amount > 0 and score >= 72 else "WATCH"
+    action = "BUY" if allow_buy and amount > 0 and score >= 72 else "WATCH"
+    if not allow_buy:
+        amount = 0.0
     return Recommendation(
         trade_date=snapshot.trade_date,
         valid_from=snapshot.next_trade_date,
@@ -116,11 +119,15 @@ def _build_recommendation(
         max_amount=max_amount,
         entry_condition=f"次日价格不高于 {instrument.price * 1.015:.2f}，且所属行业强度未转弱",
         invalidation_condition=f"价格跌破 {instrument.price * 0.94:.2f}，或行业状态降至转弱",
-        exit_condition="趋势评分跌破45、组合风险触发降仓，或达到策略失效条件",
+        exit_condition=(
+            "个股3日无相对收益减半、5日无跟随退出；ETF 10日无跟随复核。"
+            "市场降级或组合回撤规则优先执行"
+        ),
         risk_notes=[
             "该结果由演示数据生成，不能作为真实交易依据" if snapshot.is_demo else "需结合最新公告和成交状态复核",
             "T日收盘信号仅从下一交易日起有效",
             "金额可能因组合现金和行业暴露被进一步压缩",
+            "代理多空比与研究阈值当前处于待回测状态",
         ],
         reasoning=[
             f"综合评分 {score:.1f}",
@@ -213,9 +220,10 @@ def run_analysis(
     recommendations: list[Recommendation] = []
     remaining_cash = portfolio.cash
     planned_exposure = dict(portfolio_risk.industry_exposure)
+    total_equity_cap = min(float(regime["equity_max"]), float(config.get("total_equity_cap", 0.75)))
     remaining_equity_capacity = max(
         0.0,
-        portfolio_risk.total_value * float(regime["equity_max"]) - portfolio_risk.invested_value,
+        portfolio_risk.total_value * total_equity_cap - portfolio_risk.invested_value,
     )
     remaining_stock_capacity = max(
         0.0,
@@ -270,6 +278,7 @@ def run_analysis(
             available_cash=remaining_cash,
             industry_capacity=capacity,
             config=config,
+            allow_buy=str(regime["regime"]) in {"反弹", "趋势", "强攻"},
         )
         recommendations.append(recommendation)
         if recommendation.action == "BUY":
@@ -326,6 +335,7 @@ def run_analysis(
             available_cash=remaining_cash,
             industry_capacity=capacity,
             config=config,
+            allow_buy=str(regime["regime"]) in {"磨底", "反弹", "回踩", "趋势", "强攻"},
         )
         recommendations.append(recommendation)
         if recommendation.action == "BUY":
@@ -340,7 +350,7 @@ def run_analysis(
         db.add(RecommendationSnapshot(recommendation_id=recommendation.id, payload=_recommendation_payload(recommendation)))
 
     selected_industries = [item for item in industry_results if str(item["code"]) in selected_codes]
-    cash_recommended = float(regime["risk_score"]) >= 70 or portfolio_risk.drawdown >= 0.12
+    cash_recommended = str(regime["regime"]) == "冰封" or portfolio_risk.drawdown >= 0.12
     report_content = {
         "report_date": snapshot.trade_date.isoformat(),
         "valid_from": snapshot.next_trade_date.isoformat(),
@@ -358,7 +368,19 @@ def run_analysis(
         "recommendations": [_recommendation_payload(item) for item in recommendations],
         "suggested_equity_range": [regime["equity_min"], regime["equity_max"]],
         "cash_recommended": cash_recommended,
-        "medium_term_view": "区间震荡" if 35 <= float(regime["risk_score"]) < 60 else "温和上升" if float(regime["risk_score"]) < 35 else "温和下降",
+        "medium_term_view": {
+            "强攻": "趋势扩张",
+            "趋势": "温和上升",
+            "回踩": "上升趋势中的风险收缩",
+            "反弹": "低位修复，等待趋势确认",
+            "磨底": "底部震荡",
+            "冰封": "防守与现金优先",
+        }[str(regime["regime"])],
+        "update_schedule": {
+            "time": str(config.get("daily_update_time", "18:30")),
+            "timezone": str(config.get("daily_update_timezone", "Asia/Shanghai")),
+            "trading_days_only": True,
+        },
         "changes": ["MVP首次分析，无前一交易日可比记录"],
         "risk_notice": "演示数据仅用于验证系统功能，不构成投资建议。",
         "strategy_version": get_settings().strategy_version,

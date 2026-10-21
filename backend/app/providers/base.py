@@ -14,6 +14,14 @@ class MarketMetrics:
     volatility: float
     drawdown: float
     industry_diffusion: float
+    proxy_ratio: float
+    proxy_rate: float
+    proxy_slope_3d: float
+    proxy_percentile: float
+    broad_selloff_pressure: float
+    deep_bear_count: float
+    trend_bull_count: float
+    wave_continuity: float
 
 
 @dataclass(frozen=True)

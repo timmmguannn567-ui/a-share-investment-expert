@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # 18:30 Asia/Shanghai, Monday-Friday. Market holidays still publish a
+    # freshness check while the provider decides whether data has changed.
+    - cron: "30 10 * * 1-5"
 
 permissions:
   contents: read
@@ -32,6 +36,39 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install API dependencies
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Build daily API snapshot
+        shell: bash
+        env:
+          DATABASE_URL: sqlite:////tmp/a-share-expert.db
+          PUBLIC_API_BASE: /${{ github.event.repository.name }}/api
+        run: |
+          cd backend
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 >/tmp/a-share-api.log 2>&1 &
+          API_PID=$!
+          cd ..
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/api/health >/dev/null; then
+              break
+            fi
+            if [ "$attempt" = "30" ]; then
+              cat /tmp/a-share-api.log
+              exit 1
+            fi
+            sleep 1
+          done
+          python scripts/export_pages_data.py
+          kill "$API_PID"
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

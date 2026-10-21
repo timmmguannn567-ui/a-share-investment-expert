@@ -17,7 +17,7 @@ def drawdown_equity_cap(drawdown: float) -> float:
     if drawdown >= 0.15:
         return 0.0
     if drawdown >= 0.12:
-        return 0.10
+        return 0.20
     if drawdown >= 0.10:
         return 0.30
     if drawdown >= 0.08:
@@ -58,7 +58,9 @@ def calculate_max_amount(
 def suggested_amount(max_amount: float, score: float) -> float:
     if max_amount <= 0 or score < 65:
         return 0.0
-    multiplier = 0.45 if score < 72 else 0.65 if score < 82 else 0.8
+    # The first order is deliberately a probe position. Confirmation is
+    # required before the remaining target exposure can be added.
+    multiplier = 0.20 if score < 72 else 1 / 3
     return min(max_amount, round(max_amount * multiplier / 100) * 100)
 
 

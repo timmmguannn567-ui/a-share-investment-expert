@@ -99,6 +99,28 @@ def _next_weekday(day: date) -> date:
     return candidate
 
 
+def _ratio_from_percentile(percentile: float) -> float:
+    """Map market breadth percentiles onto the documented research scale.
+
+    This is a deterministic demo proxy, not the unpublished source formula.
+    """
+    anchors = [
+        (0.0, 0.18),
+        (10.0, 0.30),
+        (20.0, 0.50),
+        (30.0, 0.60),
+        (75.0, 1.50),
+        (87.5, 2.00),
+        (95.0, 3.00),
+        (100.0, 4.20),
+    ]
+    for (left_p, left_v), (right_p, right_v) in zip(anchors, anchors[1:]):
+        if percentile <= right_p:
+            ratio = (percentile - left_p) / (right_p - left_p)
+            return round(left_v + ratio * (right_v - left_v), 3)
+    return anchors[-1][1]
+
+
 class MockDataProvider:
     name = "mock"
     is_demo = True
@@ -121,6 +143,9 @@ class MockDataProvider:
     def get_snapshot(self, trade_date: date | None = None) -> MarketSnapshot:
         day = trade_date or date.today()
         market_rng = self._rng(day, "market")
+        proxy_percentile = market_rng.uniform(8, 97)
+        proxy_ratio = _ratio_from_percentile(proxy_percentile)
+        proxy_rate = market_rng.uniform(0.72, 1.68)
         market = MarketMetrics(
             index_trend=market_rng.uniform(42, 72),
             momentum_20d=market_rng.uniform(38, 74),
@@ -129,6 +154,14 @@ class MockDataProvider:
             volatility=market_rng.uniform(30, 67),
             drawdown=market_rng.uniform(25, 62),
             industry_diffusion=market_rng.uniform(36, 75),
+            proxy_ratio=proxy_ratio,
+            proxy_rate=proxy_rate,
+            proxy_slope_3d=round(math.log(max(proxy_ratio, 0.01)) * market_rng.uniform(-0.22, 0.22), 3),
+            proxy_percentile=round(proxy_percentile, 1),
+            broad_selloff_pressure=market_rng.uniform(18, 82),
+            deep_bear_count=market_rng.uniform(20, 78),
+            trend_bull_count=market_rng.uniform(25, 84),
+            wave_continuity=market_rng.uniform(28, 86),
         )
 
         industries: list[IndustryMetrics] = []

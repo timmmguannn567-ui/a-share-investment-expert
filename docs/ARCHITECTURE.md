@@ -12,6 +12,8 @@
 
 系统采用前后端分离结构。后端是唯一的业务规则来源，前端不重复计算交易信号。
 
+线上 GitHub Pages 使用由同一 FastAPI 规则引擎导出的只读 JSON 快照。GitHub Actions 在交易日 18:30（Asia/Shanghai）启动临时 API、运行当日分析、导出 `frontend/public/api/*.json` 并重新部署。该路径不依赖用户电脑常驻进程；本地 FastAPI 继续承担开发、完整读写和 OpenAPI 文档。
+
 ## 2. 目录
 
 ```text
@@ -53,6 +55,7 @@ MVP包含确定性 `MockProvider`。真实数据适配器在第二阶段实现�
 8. 将候选交给组合风控，裁剪或否决金额
 9. 持久化建议、评分、市场状态及数据快照
 10. 生成结构化盘后报告
+11. 导出版本化只读API快照，记录生成时间和下次更新时间
 
 ## 5. 避免未来数据
 
@@ -80,6 +83,8 @@ MVP使用SQLite，SQLAlchemy模型避免SQLite专有语法，为迁移PostgreSQL
 ## 8. API与前端
 
 FastAPI暴露 `/api` 下的JSON接口，并生成OpenAPI文档。Next.js页面通过 `NEXT_PUBLIC_API_BASE_URL` 调用后端。请求失败时页面显示明确错误，不回退为伪造实时数据。
+
+GitHub Pages 构建设置 `NEXT_PUBLIC_STATIC_DEMO=true` 后，前端改读站点同源的 `/api/*.json`。线上快照仅提供读取；持仓和设置等写操作只在浏览器会话中模拟，不能冒充持久化后端。
 
 ## 9. 安全边界
 
